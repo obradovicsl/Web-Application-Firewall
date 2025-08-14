@@ -1,0 +1,21 @@
+{
+  "name": "transparent-proxy",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/obradovicsl/HTTP-Proxy#readme",
+  "bugs": {
+    "url": "https://github.com/obradovicsl/HTTP-Proxy/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/obradovicsl/HTTP-Proxy.git"
+  },
+  "license": "ISC",
+  "author": "obradovicsl",
+  "type": "commonjs",
+  "main": "proxy.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node proxy.js"
+  }
+}
