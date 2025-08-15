@@ -12,7 +12,13 @@ const server = http.createServer((req, res) => {
                 res.writeHead(500, { 'Content-Type': 'text/plain' });
                 res.end('Server error');
             } else {
-                res.writeHead(200, { 'Content-Type': 'text/html' });
+                const header = {
+                    'Content-Type': 'text/html',
+                    'connection': 'keep-alive',
+                    'keep-alive': 'timeout=5, max=1000'
+                }
+
+                res.writeHead(200, header);
                 res.end(data);
             }
         });

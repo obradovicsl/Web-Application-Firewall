@@ -1,16 +1,20 @@
 const http = require('http');
 const { exec } = require('child_process');
 
+const backendAgent = new http.Agent({
+    keepAlive: true,
+    keepAliveMsecs: 1000,
+    maxSockets: 50,
+    maxFreeSockets: 10,
+    timeout: 5000,
+    freeSocketTimeout: 3000
+});
 
 const PORT = process.env.PROXY_PORT || 8080;
 const backendHost = process.env.BACKEND_HOST || '127.0.0.1';
 const backendPort = process.env.BACKEND_PORT || 3000;
 
 const server = http.createServer((req, res) => {
-
-    console.log('--- New request ---');
-    console.log(`${req.method}: ${req.url}`);
-    console.log('Headers:\n', req.headers);
 
     let body = [];
 
@@ -20,20 +24,31 @@ const server = http.createServer((req, res) => {
 
     req.on('end', () => {
         body = Buffer.concat(body);
-        console.log('Body:\n', body.toString());
 
         // Analyse
+
+        const proxyHeader = {
+            ...req.headers,
+            'connection': 'keep-alive'
+        };
 
         const options = {
             hostname: backendHost,
             port: backendPort,
             path: req.url,
             method: req.method,
-            headers: req.headers
+            headers: proxyHeader,
+            agent: backendAgent,
         };
 
         const proxyReq = http.request(options, proxyRes => {
-            res.writeHead(proxyRes.statusCode, proxyRes.headers);
+            const responseHeaders = {
+                ...proxyRes.headers,
+                'connection': 'keep-alive',
+                'keep-alive': 'timeout=5, max=1000'
+            }
+
+            res.writeHead(proxyRes.statusCode, responseHeaders);
             proxyRes.pipe(res, {end: true});
         });
 
@@ -71,3 +86,21 @@ function shutdown() {
         process.exit();
     });
 }
+
+setInterval(() => {
+    const sockets = backendAgent.sockets;
+    const freeSockets = backendAgent.freeSockets;
+    
+    let totalSockets = 0;
+    let totalFreeSockets = 0;
+    
+    Object.values(sockets).forEach(socketArray => {
+        totalSockets += socketArray.length;
+    });
+    
+    Object.values(freeSockets).forEach(socketArray => {
+        totalFreeSockets += socketArray.length;
+    });
+    
+    console.log(`🔗 Agent stats: ${totalSockets} active, ${totalFreeSockets} free sockets`);
+}, 5000);
