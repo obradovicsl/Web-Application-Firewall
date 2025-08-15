@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <json-c/json.h>
+#include <unistd.h>
 
 typedef struct{
     char *url;
@@ -22,33 +23,62 @@ attack_type_t check_sql_injection(const char *input);
 
 int main(){
 
-    char buffer[65536]; // 64KB buffer
+    setvbuf(stdout, NULL, _IONBF, 0); // Unbuffered stdout
+    setvbuf(stderr, NULL, _IONBF, 0); // Unbuffered stderr
+    
+    size_t buffer_size = 1024 * 1024;
+    char *buffer = malloc(buffer_size);
+    if (!buffer) {
+        fprintf(stderr, "{\"error\":\"Memory allocation failed\"}\n");    
+        return 1;
+    }
 
     // Ready signal
     printf("{\"status\":\"ready\"}\n");
     fflush(stdout);
 
-    // Waiting for JSON req
-    while(fgets(buffer, sizeof(buffer), stdin)){
-        buffer[strcspn(buffer, "\n")] = 0;
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
 
-        if(strlen(buffer) > 0){
-            process_request(buffer);
+    // Waiting for JSON req
+    while((read = getline(&line, &len, stdin)) != -1){
+
+        // fprintf(stderr, "DEBUG: Received %zd bytes\n", read);
+
+        if (read > 0 && line[read - 1] == '\n'){
+            line[read - 1] = '\0';
+            read--;
+        }
+
+        if (read > 0) {
+            // fprintf(stderr, "DEBUG: Processing request\n");
+            process_request(line);
+            // fprintf(stderr, "DEBUG: Request processed\n");
+        }
+
+        if (line) {
+            free(line);
+            line = NULL;
+            len = 0;
         }
     }
 
+    if (line) free(line);
+    free(buffer);
+
+    // fprintf(stderr, "DEBUG: Main loop ended\n");
     return 0;
 }
 
 void process_request(const char *json_input){
     json_object *root = json_tokener_parse(json_input);
     if(!root){
-        printf("{\"error\":\"Invalid JSON\"}\n");
-        fflush(stdout);
+        fprintf(stderr, "{\"error\":\"Invalid JSON\"}\n");
         return;
     }
 
-    request_t req;
+    request_t req = {0};
 
     json_object *url_obj;
     if (json_object_object_get_ex(root, "url", &url_obj)){
@@ -68,11 +98,14 @@ void process_request(const char *json_input){
     attack_type_t attack = analyze_request(&req);
 
     if (attack == CLEAN) {
-        printf("{\"status\":\"clean\",\"attack\":null}\n");
+        // fprintf(stderr, "DEBUG: Sending clean response\n");
+        fprintf(stdout, "{\"status\":\"clean\",\"attack\":null}\n");
+        // fprintf(stderr, "DEBUG: Clean response sent\n");
     }else {
-        printf("{\"status\":\"attack\",\"attack\":%d}\n", attack);
+        fprintf(stdout, "{\"status\":\"attack\",\"attack\":%d}\n", attack);
     }
     fflush(stdout);
+    fsync(STDOUT_FILENO);
 
     free(req.url);
     free(req.headers);
@@ -84,16 +117,18 @@ attack_type_t analyze_request(request_t *req){
     attack_type_t result;
 
     // Analyze URL
-    if ((result = check_sql_injection(req->url)) != CLEAN) return result;
+    if (req->url && (result = check_sql_injection(req->url)) != CLEAN) {
+        return result;
+    }
 
     // Analyze Header
-    if (req->headers){
-        if ((result = check_sql_injection(req->headers)) != CLEAN) return result;
+    if (req->headers && (result = check_sql_injection(req->headers)) != CLEAN){
+        return result;
     }
 
     // Analyze Body
-    if (req->body){
-        if ((result = check_sql_injection(req->body)) != CLEAN) return result;
+    if (req->body && (result = check_sql_injection(req->body)) != CLEAN){
+        return result;
     }
 
     return CLEAN;
