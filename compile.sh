@@ -1,0 +1,1 @@
+gcc -O2 -I/opt/homebrew/include -L/opt/homebrew/lib -ljson-c -o analyze analyzer.c

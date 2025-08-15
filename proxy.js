@@ -22,6 +22,8 @@ const server = http.createServer((req, res) => {
         body = Buffer.concat(body);
         console.log('Body:\n', body.toString());
 
+        // Analyse
+
         const options = {
             hostname: backendHost,
             port: backendPort,
