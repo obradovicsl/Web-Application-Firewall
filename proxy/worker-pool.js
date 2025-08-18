@@ -2,6 +2,8 @@ const {spawn} = require('child_process');
 const EventEmitter = require('events');
 
 const analyzer = process.env.ANALYZER_NAME || 'analyze'
+const useThreads = process.env.THREADS == 'true' || false
+const threadNum = process.env.THREAD_NUM || 6
 
 
 // Worker class - worker is a Node object that represents C process
@@ -19,7 +21,9 @@ class AnalyzerWorker extends EventEmitter {
 
     // Spawns C process, and register callbacks on stdout, stderr and exit
     spawn() {
-        this.process = spawn(`./${analyzer}`, [], {
+        const args = useThreads ? [threadNum.toString()] : [];
+
+        this.process = spawn(`./${analyzer}`, args, {
             stdio: ['pipe', 'pipe', 'pipe']
         });
 
@@ -119,14 +123,14 @@ class AnalyzerWorker extends EventEmitter {
                 }
             }, 5000);
 
-            // Without removing timer - after 5s, if the worker got other task - it will kill it
+            // If we don't remove timer - worker will be killed after 5s if it has any task
             this.currentTask = {
                 resolve: (result) => {
-                    clearTimeout(timeoutId); // ← KLJUČNO!
+                    clearTimeout(timeoutId);
                     resolve(result);
                 },
                 reject: (error) => {
-                    clearTimeout(timeoutId); // ← KLJUČNO!
+                    clearTimeout(timeoutId);
                     reject(error);
                 }
             };

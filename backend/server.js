@@ -22,9 +22,9 @@ const server = http.createServer((req, res) => {
                 res.end(data);
             }
         });
-        console.log('--- New request ---');
-        console.log(`${req.method}: ${req.url}`);
-        console.log('Headers:\n', req.headers);
+        // console.log('--- New request ---');
+        // console.log(`${req.method}: ${req.url}`);
+        // console.log('Headers:\n', req.headers);
     } else {
         res.writeHead(404, { 'Content-Type': 'text/plain' });
         res.end('Page not found');
