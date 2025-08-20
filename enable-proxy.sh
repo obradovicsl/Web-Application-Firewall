@@ -21,21 +21,20 @@ echo "Packet filter set"
 echo "All packets on ${NETWORK_INTERFACE} interface, port ${DST_PORT} will go to 127.0.0.1:${PROXY_PORT}"
 
 # Compile C program (C_NAME) to binary (ANALYZER_NAME)
-gcc -O2 \
-    -I/opt/homebrew/include \
-    -Ianalyzer/detectors \
-    -Ianalyzer \
-    -L/opt/homebrew/lib \
-    -luri_encode \
-    -ljson-c \
-    analyzer/${C_NAME} \
-    analyzer/html-decoder.c \
-    analyzer/detectors/sqli_detection.c \
-    analyzer/detectors/xss_detection.c \
-    -o ${ANALYZER_NAME}
+# gcc -O2 \
+#     -I/opt/homebrew/include \
+#     -Ianalyzer/detectors \
+#     -Ianalyzer \
+#     -L/opt/homebrew/lib \
+#     -luri_encode \
+#     -ljson-c \
+#     analyzer/${C_NAME} \
+#     analyzer/html-decoder.c \
+#     analyzer/detectors/sqli_detection.c \
+#     analyzer/detectors/xss_detection.c \
+#     -o ${ANALYZER_NAME}
 
-
-echo "${C_NAME} compiled to ${ANALYZER_NAME} and ready for use"
+# echo "${C_NAME} compiled to ${ANALYZER_NAME} and ready for use"
 
 # Run proxy (NodeJS)
 exec npm start

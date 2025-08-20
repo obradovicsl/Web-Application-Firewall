@@ -3,63 +3,100 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <uri_encode.h>
 #include <ctype.h>
-
+#include <json-c/json.h>
 
 #include "html-decoder.h"
 
-static size_t utf8_encode(uint32_t cp, char *out, size_t out_size) {
-    if (cp <= 0x7F) {
-        if (out_size < 1) return 0;
-        out[0] = (char)cp;
-        return 1;
-    } else if (cp <= 0x7FF) {
-        if (out_size < 2) return 0;
-        out[0] = (char)(0xC0 | (cp >> 6));
-        out[1] = (char)(0x80 | (cp & 0x3F));
-        return 2;
-    } else if (cp <= 0xFFFF) {
-        if (out_size < 3) return 0;
-        out[0] = (char)(0xE0 | (cp >> 12));
-        out[1] = (char)(0x80 | ((cp >> 6) & 0x3F));
-        out[2] = (char)(0x80 | (cp & 0x3F));
-        return 3;
-    } else if (cp <= 0x10FFFF) {
-        if (out_size < 4) return 0;
-        out[0] = (char)(0xF0 | (cp >> 18));
-        out[1] = (char)(0x80 | ((cp >> 12) & 0x3F));
-        out[2] = (char)(0x80 | ((cp >> 6) & 0x3F));
-        out[3] = (char)(0x80 | (cp & 0x3F));
-        return 4;
+char *extract_json_values(const char *text) {
+    struct json_object *parsed = json_tokener_parse(text);
+    if (!parsed) return NULL;
+
+    // Get the total length
+    size_t total_len = 0;
+    json_object_object_foreach(parsed, k1, v1) {
+        const char *value_str = json_object_get_string(v1);
+        if (value_str) {
+            total_len += strlen(value_str) + 1;
+        }
     }
-    return 0; // nevalidan codepoint
+
+    if (total_len == 0) {
+        json_object_put(parsed);
+        return NULL;
+    }
+
+    // 2. Allocate buffer
+    char *result = malloc(total_len + 1);
+    if (!result) {
+        json_object_put(parsed);
+        return NULL;
+    }
+
+    char *p = result;
+    json_object_object_foreach(parsed, k2, v2) {
+        const char *value_str = json_object_get_string(v2);
+        if (value_str) {
+            size_t len = strlen(value_str);
+            memcpy(p, value_str, len);
+            p += len;
+            *p++ = ' '; 
+        }
+    }
+    *p = '\0';
+
+    json_object_put(parsed);
+    return result;
 }
 
 
-typedef struct {
-    const char *name;
-    uint32_t codepoint;
-} Entity;
 
-static const Entity entities[] = {
-    {"lt", '<'}, {"gt", '>'}, {"amp", '&'},
-    {"quot", '"'}, {"apos", '\''},
-    {"nbsp", 0x00A0}, {"copy", 0x00A9}, {"euro", 0x20AC},
-};
+char *normalize_str(const char *src) {
+    if (!src) return NULL;
+    size_t len = strlen(src);
 
-static bool lookup_entity(const char *src, size_t len, uint32_t *out_cp, size_t *consumed) {
-    for (size_t i = 0; i < sizeof(entities)/sizeof(entities[0]); i++) {
-        size_t nlen = strlen(entities[i].name);
-        if (len >= nlen + 2 && src[0] == '&' &&
-            strncmp(src + 1, entities[i].name, nlen) == 0 &&
-            src[1+nlen] == ';') {
-            *out_cp = entities[i].codepoint;
-            *consumed = nlen + 2;
-            return true;
-        }
+    // URI decode
+    char *buf1 = malloc(len + 1);  // +1 za '\0'
+    if (!buf1) return NULL;
+    size_t out_len = uri_decode(src, len, buf1);
+    buf1[out_len] = '\0'; 
+
+    // HTML entity decode
+    char *buf2 = malloc(out_len + 1);
+    if (!buf2) {
+        free(buf1);
+        return NULL;
     }
-    return false;
+    size_t html_len = html_entity_decode(buf1, out_len, buf2, out_len + 1);
+    buf2[html_len] = '\0';
+    free(buf1);
+
+    // whitespace + lowercase
+    char *dst = malloc(html_len + 1);
+    if (!dst) {
+        free(buf2);
+        return NULL;
+    }
+
+    size_t j = 0;
+    int in_space = 0;
+    for (size_t i = 0; i < html_len; i++) {
+        unsigned char c = (unsigned char)buf2[i];
+        if (iscntrl(c)) continue;
+        if (isspace(c)) {
+            if (!in_space) dst[j++] = ' ';
+            in_space = 1;
+            continue;
+        }
+        dst[j++] = (char)tolower(c);
+        in_space = 0;
+    }
+    dst[j] = '\0';
+    free(buf2);
+
+    return dst;
 }
 
 
@@ -114,48 +151,60 @@ size_t html_entity_decode(const char *src, size_t len, char *dst, size_t dst_siz
 }
 
 
-char *normalize_str(const char *src) {
-    if (!src) return NULL;
-    size_t len = strlen(src);
 
-    // URI decode
-    char *buf1 = malloc(len + 1);  // +1 za '\0'
-    if (!buf1) return NULL;
-    size_t out_len = uri_decode(src, len, buf1);
-    buf1[out_len] = '\0'; 
 
-    // HTML entity decode
-    char *buf2 = malloc(out_len + 1);
-    if (!buf2) {
-        free(buf1);
-        return NULL;
+
+
+static size_t utf8_encode(uint32_t cp, char *out, size_t out_size) {
+    if (cp <= 0x7F) {
+        if (out_size < 1) return 0;
+        out[0] = (char)cp;
+        return 1;
+    } else if (cp <= 0x7FF) {
+        if (out_size < 2) return 0;
+        out[0] = (char)(0xC0 | (cp >> 6));
+        out[1] = (char)(0x80 | (cp & 0x3F));
+        return 2;
+    } else if (cp <= 0xFFFF) {
+        if (out_size < 3) return 0;
+        out[0] = (char)(0xE0 | (cp >> 12));
+        out[1] = (char)(0x80 | ((cp >> 6) & 0x3F));
+        out[2] = (char)(0x80 | (cp & 0x3F));
+        return 3;
+    } else if (cp <= 0x10FFFF) {
+        if (out_size < 4) return 0;
+        out[0] = (char)(0xF0 | (cp >> 18));
+        out[1] = (char)(0x80 | ((cp >> 12) & 0x3F));
+        out[2] = (char)(0x80 | ((cp >> 6) & 0x3F));
+        out[3] = (char)(0x80 | (cp & 0x3F));
+        return 4;
     }
-    size_t html_len = html_entity_decode(buf1, out_len, buf2, out_len + 1);
-    buf2[html_len] = '\0';
-    free(buf1);
-
-    // whitespace + lowercase
-    char *dst = malloc(html_len + 1);
-    if (!dst) {
-        free(buf2);
-        return NULL;
-    }
-
-    size_t j = 0;
-    int in_space = 0;
-    for (size_t i = 0; i < html_len; i++) {
-        unsigned char c = (unsigned char)buf2[i];
-        if (iscntrl(c)) continue;
-        if (isspace(c)) {
-            if (!in_space) dst[j++] = ' ';
-            in_space = 1;
-            continue;
-        }
-        dst[j++] = (char)tolower(c);
-        in_space = 0;
-    }
-    dst[j] = '\0';
-    free(buf2);
-
-    return dst;
+    return 0; // nevalidan codepoint
 }
+
+
+typedef struct {
+    const char *name;
+    uint32_t codepoint;
+} Entity;
+
+static const Entity entities[] = {
+    {"lt", '<'}, {"gt", '>'}, {"amp", '&'},
+    {"quot", '"'}, {"apos", '\''},
+    {"nbsp", 0x00A0}, {"copy", 0x00A9}, {"euro", 0x20AC},
+};
+
+static bool lookup_entity(const char *src, size_t len, uint32_t *out_cp, size_t *consumed) {
+    for (size_t i = 0; i < sizeof(entities)/sizeof(entities[0]); i++) {
+        size_t nlen = strlen(entities[i].name);
+        if (len >= nlen + 2 && src[0] == '&' &&
+            strncmp(src + 1, entities[i].name, nlen) == 0 &&
+            src[1+nlen] == ';') {
+            *out_cp = entities[i].codepoint;
+            *consumed = nlen + 2;
+            return true;
+        }
+    }
+    return false;
+}
+

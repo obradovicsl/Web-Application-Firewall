@@ -33,11 +33,18 @@ typedef struct {
     const char *attack;
     const char *severity;
     const char *location;
+    const char *description;
 }finding_t;
 
 typedef struct {
     finding_t *items;
     size_t count;
 }findings_t;
+
+typedef struct {
+    char *pattern;
+    char *description;
+    int severity; // 1-5 (5 being critical)
+} SQLiRegexPattern;
 
 #endif

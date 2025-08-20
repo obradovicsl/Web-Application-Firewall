@@ -130,9 +130,11 @@ void check_component(const char *input, http_request_part location, findings_t *
     if (!input) return;
     severity_t res[10] = {SEVERITY_NONE};
     severity_t r;
+    // fprintf(stderr, "%s, %s", http_part_to_str(location), input);
 
-    res[SQL_INJECTION - 1] = check_sql_injection(input, location);
-    res[XSS - 1] = check_xss(input, location);
+    // res[SQL_INJECTION - 1] = check_sql_injection(input, location);
+    res[SQL_INJECTION - 1] = detect_sqli_comprehensive(input);
+    // res[XSS - 1] = check_xss(input, location);
 
     for (int i = 0; i < 4; i++) {
         if (res[i] != SEVERITY_NONE) {

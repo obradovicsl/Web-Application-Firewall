@@ -41,7 +41,7 @@ class AnalyzerWorker extends EventEmitter {
 
         // If C process exit -> it will be restarted
         this.process.on('exit', (code) => {
-            console.error(`Worker ${this.id} exited with code ${code}`);
+            console.error(`C worker ${this.id} exited with code ${code}`);
             this.active = false;
             if (this.currentTask) {
                 this.currentTask.reject(new Error('Worker crashed'));
