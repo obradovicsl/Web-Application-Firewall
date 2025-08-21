@@ -4,7 +4,7 @@ set -a
 source .env
 set +a
 
-echo "🔨 Kompajliranje RE2 wrapper-a..."
+echo "🔨 Compiling RE2 wrappers..."
 # Kompajliraj C++ wrapper prvo
 g++ -std=c++17 -O2 \
     -I/opt/homebrew/include \
@@ -14,11 +14,11 @@ g++ -std=c++17 -O2 \
 
 # Provjeri da li je wrapper uspješno kompajliran
 if [ $? -ne 0 ]; then
-    echo "❌ Greška pri kompajliranju RE2 wrapper-a!"
+    echo "❌ Error while compiling RE2 wrappers!"
     exit 1
 fi
 
-echo "🔨 Kompajliranje C modula..."
+echo "🔨 Compiling C modules..."
 # Kompajliraj C fajlove
 gcc -O2 \
     -I/opt/homebrew/include \
@@ -37,23 +37,15 @@ gcc -O2 \
     -I/opt/homebrew/include \
     -Ianalyzer/detectors \
     -Ianalyzer \
-    -c analyzer/detectors/sqli_detection.c \
-    -o analyzer/detectors/sqli_detection.o
+    -c analyzer/detectors/detection.c \
+    -o analyzer/detectors/detection.o
 
-gcc -O2 \
-    -I/opt/homebrew/include \
-    -Ianalyzer/detectors \
-    -Ianalyzer \
-    -c analyzer/detectors/xss_detection.c \
-    -o analyzer/detectors/xss_detection.o
-
-echo "🔗 Linkovanje svih komponenti..."
+echo "🔗 Component linking..."
 # Final linkovanje sa g++ (jer imaš C++ kod u wrapper-u)
 g++ -O2 \
     analyzer/main.o \
     analyzer/html-decoder.o \
-    analyzer/detectors/sqli_detection.o \
-    analyzer/detectors/xss_detection.o \
+    analyzer/detectors/detection.o \
     analyzer/re2_wrapper.o \
     -L/opt/homebrew/lib \
     -lre2 \

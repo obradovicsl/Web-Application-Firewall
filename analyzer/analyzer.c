@@ -7,16 +7,13 @@
 #include <json-c/json.h>
 
 
-#include "models.h"
-#include "sqli_detection.h"
-#include "xss_detection.h"
+#include "detection.h"
 #include "html-decoder.h"
 
 void process_request(const char *json_input);
 void analyze_request(request_t *req, findings_t *findings);
 void print_result(findings_t *findings);
 const char *http_part_to_str(http_request_part part);
-void check_component(const char *input, http_request_part location, findings_t *findings);
 const char *attack_type_to_str(attack_type_t type);
 const char *severity_to_str(severity_t type);
 
@@ -33,14 +30,12 @@ int main(){
         return 1;
     }
 
-
     // Compile REGEX patterns
-    init_sqli_patterns();
-    init_xss_patterns();
+    init_regex_patterns();
 
     
     // Ready signal
-    printf("{\"status\":\"ready\"}\n");
+    fprintf(stdout, "{\"status\":\"ready\"}\n");
     fflush(stdout);
 
     char *line = NULL;
@@ -50,17 +45,13 @@ int main(){
     // Waiting for JSON req
     while((read = getline(&line, &len, stdin)) != -1){
 
-        // fprintf(stderr, "DEBUG: Received %zd bytes\n", read);
-
         if (read > 0 && line[read - 1] == '\n'){
             line[read - 1] = '\0';
             read--;
         }
 
         if (read > 0) {
-            // fprintf(stderr, "DEBUG: Processing request\n");
             process_request(line);
-            // fprintf(stderr, "DEBUG: Request processed\n");
         }
 
         if (line) {
@@ -74,10 +65,7 @@ int main(){
     free(buffer);
 
 
-    cleanup_sqli_patterns();
-    cleanup_xss_patterns();
-
-    // fprintf(stderr, "DEBUG: Main loop ended\n");
+    cleanup_regex_patterns();
     return 0;
 }
 
@@ -127,35 +115,13 @@ void process_request(const char *json_input){
 void analyze_request(request_t *req, findings_t *findings){
     attack_type_t result;
     // Analyze URL
-    if (req->url) check_component(req->url, HTTP_REQUEST_URL, findings);
+    if (req->url) analyze(req->url, HTTP_REQUEST_URL, findings);
 
     // Analyze Header
-    if (req->headers) check_component(req->headers, HTTP_REQUEST_HEADERS, findings);
+    if (req->headers) analyze(req->headers, HTTP_REQUEST_HEADERS, findings);
 
     // Analyze Body
-    if (req->body) check_component(req->body, HTTP_REQUEST_BODY, findings);
-}
-
-void check_component(const char *input, http_request_part location, findings_t *findings) {
-    if (!input) return;
-    severity_t res[10] = {SEVERITY_NONE};
-    severity_t r;
-    // fprintf(stderr, "%s, %s", http_part_to_str(location), input);
-
-    // res[SQL_INJECTION - 1] = check_sql_injection(input, location);
-    res[SQL_INJECTION - 1] = detect_sqli_optimized(input);
-    res[XSS - 1] = detect_xss_optimized(input);
-
-    for (int i = 0; i < 4; i++) {
-        if (res[i] != SEVERITY_NONE) {
-            findings->items = realloc(findings->items, (findings->count + 1) * sizeof(finding_t));
-            findings->items[findings->count++] = (finding_t){
-                .attack = attack_type_to_str(i + 1),
-                .severity = severity_to_str(res[i]),
-                .location = http_part_to_str(location),
-            };
-        }
-    }
+    if (req->body) analyze(req->body, HTTP_REQUEST_BODY, findings);
 }
 
 const char *attack_type_to_str(attack_type_t type) {
@@ -228,11 +194,11 @@ void print_result(findings_t *findings) {
             struct json_object *item = json_object_new_object();
 
             json_object_object_add(item, "attack",
-                                   json_object_new_string(findings->items[i].attack));
-            json_object_object_add(item, "severity",
-                                   json_object_new_string(findings->items[i].severity));
+                                   json_object_new_string(attack_type_to_str(findings->items[i].attack)));
             json_object_object_add(item, "location",
-                                   json_object_new_string(findings->items[i].location));
+                                   json_object_new_string(http_part_to_str(findings->items[i].location)));
+            json_object_object_add(item, "severity",
+                                   json_object_new_string(findings->items[i].description));
 
             json_object_array_add(arr, item);
         }

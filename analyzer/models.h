@@ -5,37 +5,6 @@
 
 #include "re2_wrapper.h"
 
-// ---------------- STRUCTS ----------------
-
-typedef struct{
-    char *url;
-    char *headers;
-    char *body;
-}request_t;
-
-typedef struct {
-    const char *attack;
-    const char *severity;
-    const char *location;
-    const char *description;
-}finding_t;
-
-typedef struct {
-    finding_t *items;
-    size_t count;
-}findings_t;
-
-typedef struct {
-    char *pattern;
-    char *description;
-    int severity;
-} RawRegexPattern;
-
-typedef struct {
-    re2_pattern_t *compiled_regex;
-    const char *description;
-    int severity;
-} CompiledRegexPattern;
 
 
 // ---------------- ENUMS ----------------
@@ -59,6 +28,42 @@ typedef enum{
     SEVERITY_MEDIUM,
     SEVERITY_HIGH
 }severity_t;
+
+// ---------------- STRUCTS ----------------
+
+typedef struct{
+    char *url;
+    char *headers;
+    char *body;
+}request_t;
+
+typedef struct {
+    attack_type_t attack;
+    http_request_part location;
+    const char *description;
+}finding_t;
+
+typedef struct {
+    finding_t *items;
+    size_t count;
+}findings_t;
+
+typedef struct {
+    char *pattern;
+    char *description;
+    int severity;
+    attack_type_t attack;
+} RawRegexPattern;
+
+typedef struct {
+    re2_pattern_t *compiled_regex;
+    attack_type_t attack;
+    const char *description;
+    int severity;
+} CompiledRegexPattern;
+
+
+
 
 
 #endif

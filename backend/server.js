@@ -9,7 +9,7 @@ const server = http.createServer((req, res) => {
     const parsedUrl = url.parse(req.url, true);
     const pathname = parsedUrl.pathname;
 
-    // console.log(`Request: ${req.method} ${pathname}`);
+    // console.dir(req.headers, {depth: null});
     // console.log('Query:', parsedUrl.query);
 
     // --- API ruta ---
