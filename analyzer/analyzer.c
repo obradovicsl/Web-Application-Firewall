@@ -33,6 +33,12 @@ int main(){
         return 1;
     }
 
+
+    // Compile REGEX patterns
+    init_sqli_patterns();
+    init_xss_patterns();
+
+    
     // Ready signal
     printf("{\"status\":\"ready\"}\n");
     fflush(stdout);
@@ -66,6 +72,10 @@ int main(){
 
     if (line) free(line);
     free(buffer);
+
+
+    cleanup_sqli_patterns();
+    cleanup_xss_patterns();
 
     // fprintf(stderr, "DEBUG: Main loop ended\n");
     return 0;
@@ -133,8 +143,8 @@ void check_component(const char *input, http_request_part location, findings_t *
     // fprintf(stderr, "%s, %s", http_part_to_str(location), input);
 
     // res[SQL_INJECTION - 1] = check_sql_injection(input, location);
-    res[SQL_INJECTION - 1] = detect_sqli_comprehensive(input);
-    // res[XSS - 1] = check_xss(input, location);
+    res[SQL_INJECTION - 1] = detect_sqli_optimized(input);
+    res[XSS - 1] = detect_xss_optimized(input);
 
     for (int i = 0; i < 4; i++) {
         if (res[i] != SEVERITY_NONE) {

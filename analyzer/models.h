@@ -3,11 +3,42 @@
 
 #include <stddef.h>
 
+#include "re2_wrapper.h"
+
+// ---------------- STRUCTS ----------------
+
 typedef struct{
     char *url;
     char *headers;
     char *body;
 }request_t;
+
+typedef struct {
+    const char *attack;
+    const char *severity;
+    const char *location;
+    const char *description;
+}finding_t;
+
+typedef struct {
+    finding_t *items;
+    size_t count;
+}findings_t;
+
+typedef struct {
+    char *pattern;
+    char *description;
+    int severity;
+} RawRegexPattern;
+
+typedef struct {
+    re2_pattern_t *compiled_regex;
+    const char *description;
+    int severity;
+} CompiledRegexPattern;
+
+
+// ---------------- ENUMS ----------------
 
 typedef enum {
     HTTP_REQUEST_URL,
@@ -29,22 +60,5 @@ typedef enum{
     SEVERITY_HIGH
 }severity_t;
 
-typedef struct {
-    const char *attack;
-    const char *severity;
-    const char *location;
-    const char *description;
-}finding_t;
-
-typedef struct {
-    finding_t *items;
-    size_t count;
-}findings_t;
-
-typedef struct {
-    char *pattern;
-    char *description;
-    int severity; // 1-5 (5 being critical)
-} SQLiRegexPattern;
 
 #endif

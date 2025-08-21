@@ -1,0 +1,1 @@
+echo '{"url":"/api/users/1%20or%20233%3D233","headers":"{}","body":""}' | time ./analyze

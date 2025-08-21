@@ -3,6 +3,9 @@
         "ctype.h": "c",
         "uri_encode.h": "c",
         "stdlib.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "json.h": "c",
+        "models.h": "c",
+        "sqli_detection.h": "c"
     }
 }
