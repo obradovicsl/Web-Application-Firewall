@@ -17,9 +17,11 @@ typedef enum {
 
 typedef enum{
     CLEAN = 0,
-    SQL_INJECTION = 1,
-    XSS = 2,
-    DIRECTORY_TRAVERSAL = 3
+    SQL_INJECTION,
+    XSS,
+    DIRECTORY_TRAVERSAL,
+    COMMAND_INJECTION,
+    LDAP_INJECTION,
 }attack_type_t;
 
 typedef enum{
@@ -32,6 +34,7 @@ typedef enum{
 // ---------------- STRUCTS ----------------
 
 typedef struct{
+    char *id;
     char *url;
     char *headers;
     char *body;

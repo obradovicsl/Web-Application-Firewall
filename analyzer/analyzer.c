@@ -10,9 +10,11 @@
 #include "detection.h"
 #include "html-decoder.h"
 
-void process_request(const char *json_input);
+request_t *parse_input_array(const char *json_input, size_t *out_count);
+char *process_request(request_t *request);
 void analyze_request(request_t *req, findings_t *findings);
-void print_result(findings_t *findings);
+char *print_result(findings_t *findings);
+char *process_array_and_build_output(request_t *requests, size_t count);
 const char *http_part_to_str(http_request_part part);
 const char *attack_type_to_str(attack_type_t type);
 const char *severity_to_str(severity_t type);
@@ -51,7 +53,24 @@ int main(){
         }
 
         if (read > 0) {
-            process_request(line);
+            size_t requests_len = 0;
+            request_t *requests = parse_input_array(line, &requests_len);
+            // fprintf(stderr, "%zu Zahteva se obradjuje", requests_len);
+            if (requests) {
+                char *output = process_array_and_build_output(requests, requests_len);
+                if (output) {
+                    fprintf(stdout, "%s\n", output);
+                    free(output);
+                }
+
+                for (int i = 0; i < requests_len; i++) {
+                    free(requests[i].id);
+                    free(requests[i].url);
+                    free(requests[i].headers);
+                    free(requests[i].body);
+                }
+                free(requests);
+            }
         }
 
         if (line) {
@@ -69,47 +88,74 @@ int main(){
     return 0;
 }
 
-
-void process_request(const char *json_input){
+request_t *parse_input_array(const char *json_input, size_t *out_count) {
+    // Initialize JSON parser, and check is input typeof arr
     json_object *root = json_tokener_parse(json_input);
-    if(!root){
-        fprintf(stderr, "{\"error\":\"Invalid JSON\"}\n");
-        return;
+    if(!root || !json_object_is_type(root, json_type_array)){
+        fprintf(stderr, "{\"error\":\"Invalid JSON array\"}\n");
+        if (root) json_object_put(root);
+        *out_count = 0;
+        return NULL;
     }
 
-    request_t req = {0};
-
-    json_object *url_obj;
-    if (json_object_object_get_ex(root, "url", &url_obj)){
-        const char *raw = json_object_get_string(url_obj);
-        req.url = normalize_str(raw);
+    // Get the length of array
+    size_t len = json_object_array_length(root);
+    request_t *requests = calloc(len, sizeof(request_t));
+    if (!requests) {
+        fprintf(stderr, "{\"error\":\"Memory allocation failed\"}\n");
+        json_object_put(root);
+        *out_count = 0;
+        return NULL;
     }
 
-    json_object *headers_obj;
-    if (json_object_object_get_ex(root, "headers", &headers_obj)){
-        const char *raw = json_object_get_string(headers_obj);
-        req.headers = normalize_str(raw);
+    // Iterate through input req by req
+    for (size_t i = 0; i < len; i++) {
+        struct json_object *obj = json_object_array_get_idx(root, i);
+        if (!obj || !json_object_is_type(obj, json_type_object)) {
+            continue; // continue if its not an object
+        }
+
+        request_t *req = &requests[i];
+        memset(req, 0, sizeof(request_t));
+
+        struct json_object *id_obj;
+        if (json_object_object_get_ex(obj, "id", &id_obj)) {
+            const char *raw = json_object_get_string(id_obj);
+            req->id = normalize_str(raw);
+        }
+
+        struct json_object *url_obj;
+        if (json_object_object_get_ex(obj, "url", &url_obj)) {
+            const char *raw = json_object_get_string(url_obj);
+            req->url = normalize_str(raw);
+        }
+
+        struct json_object *headers_obj;
+        if (json_object_object_get_ex(obj, "headers", &headers_obj)) {
+            const char *raw = json_object_get_string(headers_obj);
+            req->headers = normalize_str(raw);
+        }
+
+        struct json_object *body_obj;
+        if (json_object_object_get_ex(obj, "body", &body_obj)) {
+            const char *raw = json_object_get_string(body_obj);
+            req->body = normalize_str(raw);
+        }
     }
 
-    json_object *body_obj;
-    if (json_object_object_get_ex(root, "body", &body_obj)){
-        const char *raw = json_object_get_string(body_obj);
-        req.body = normalize_str(raw);
-    }
+    json_object_put(root);
+    *out_count = len;
+    return requests;
+}
 
+char *process_request(request_t *request){
     findings_t findings;
     findings.count=0;
     findings.items=NULL;
 
-    analyze_request(&req, &findings);
+    analyze_request(request, &findings);
 
-    print_result(&findings);
-
-    free(findings.items);
-    free(req.url);
-    free(req.headers);
-    free(req.body);
-    json_object_put(root);
+    return print_result(&findings);
 }
 
 void analyze_request(request_t *req, findings_t *findings){
@@ -134,6 +180,12 @@ const char *attack_type_to_str(attack_type_t type) {
             break;
         case DIRECTORY_TRAVERSAL: 
             return "DIRECTORY_TRAVERSAL";
+            break;
+        case COMMAND_INJECTION: 
+            return "COMMAND_TRAVERSAL";
+            break;
+        case LDAP_INJECTION: 
+            return "LDAP_INJECTION";
             break;
         default: 
             break;
@@ -179,7 +231,7 @@ const char *http_part_to_str(http_request_part part) {
     return "";
 }
 
-void print_result(findings_t *findings) {
+char *print_result(findings_t *findings) {
     struct json_object *root = json_object_new_object();
 
     if (findings->count == 0) {
@@ -206,9 +258,40 @@ void print_result(findings_t *findings) {
         json_object_object_add(root, "findings", arr);
     }
 
-    const char *output = json_object_to_json_string_ext(root, JSON_C_TO_STRING_PLAIN);
-    fprintf(stdout, "%s\n", output);
-    fflush(stdout);
-
+    const char *tmp = json_object_to_json_string_ext(root, JSON_C_TO_STRING_PLAIN);
+    char *output = strdup(tmp);
     json_object_put(root);
+    return output;
+}
+
+char *process_array_and_build_output(request_t *requests, size_t count) {
+    struct json_object *jarray = json_object_new_array();
+
+    for (size_t i = 0; i < count; i++) {
+        char *req_output = process_request(&requests[i]);
+
+        struct json_object *jobj = json_object_new_object();
+
+        if (requests[i].id) {
+            json_object_object_add(jobj, "id", json_object_new_string(requests[i].id));
+        } else {
+            json_object_object_add(jobj, "id", json_object_new_string(""));
+        }
+
+        if (req_output) {
+            json_object_object_add(jobj, "result", json_object_new_string(req_output));
+            free(req_output); // oslobodi ako process_request alocira
+        } else {
+            json_object_object_add(jobj, "result", json_object_new_string(""));
+        }
+
+        json_object_array_add(jarray, jobj);
+    }
+
+    // Konvertuj ceo niz u string
+    const char *json_str = json_object_to_json_string_ext(jarray, JSON_C_TO_STRING_PLAIN);
+    char *output = strdup(json_str); // napravi kopiju jer ćemo sada osloboditi jarray
+    json_object_put(jarray); // free json-c strukture
+
+    return output;
 }

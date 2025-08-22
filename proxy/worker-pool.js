@@ -1,9 +1,11 @@
 const {spawn} = require('child_process');
+const { randomUUID } = require('crypto');
 const EventEmitter = require('events');
 
-const analyzer = process.env.ANALYZER_NAME || 'analyze'
-const useThreads = process.env.THREADS == 'true' || false
-const threadNum = process.env.THREAD_NUM || 6
+const analyzer = process.env.ANALYZER_NAME || 'analyze';
+const useThreads = process.env.THREADS == 'true' || false;
+const threadNum = process.env.THREAD_NUM || 6;
+const batchSize = parseInt(process.env.BATCH_SIZE) || 32;
 
 
 // Worker class - worker is a Node object that represents C process
@@ -12,11 +14,11 @@ class AnalyzerWorker extends EventEmitter {
         super();
         this.id = id;
         this.busy = false;
-        this.currentTask = null
+        this.currentTasks = new Map(); // task.id -> {resolve, reject} - for batch processing
         this.responseBuffer = '';
         
         // Spawns the actual C process
-        this.spawn()
+        this.spawn();
     }
 
     // Spawns C process, and register callbacks on stdout, stderr and exit
@@ -43,10 +45,19 @@ class AnalyzerWorker extends EventEmitter {
         this.process.on('exit', (code) => {
             console.error(`C worker ${this.id} exited with code ${code}`);
             this.active = false;
-            if (this.currentTask) {
-                this.currentTask.reject(new Error('Worker crashed'));
-                this.currentTask = null;
+            
+            if (this.timeoutID) {
+                clearTimeout(this.timeoutID);
+                this.timeoutID = null;
             }
+
+            if (this.currentTasks.size > 0) {
+                for (const [id, handlers] of this.currentTasks){
+                    handlers.reject(new Error('Worker crashed'));
+                    this.currentTasks.delete(id);
+                }
+            }
+            this.busy = false;
             // Restart worker
             setTimeout(() => this.spawn(), 1000);
         });
@@ -70,10 +81,20 @@ class AnalyzerWorker extends EventEmitter {
                     // the analyze is completed
                     if (response.status == 'ready') {
                         this.emit('ready');
-                    }else if (this.currentTask) {
-                        // End current task
-                        this.currentTask.resolve(response);
-                        this.currentTask = null;
+                    } else if (Array.isArray(response)) {
+                        // Clear timeout
+                        if (this.timeoutID) {
+                            clearTimeout(this.timeoutID);
+                            this.timeoutID = null;
+                        }
+
+                        for (const res of response) {
+                            const task = this.currentTasks.get(res.id);
+                            if (!task) continue;
+                            if (res.error) task.reject(res.error);
+                            else task.resolve(res.result);
+                            this.currentTasks.delete(res.id);
+                        }   
                         this.busy = false;
                         this.emit('available');
                     }
@@ -84,58 +105,96 @@ class AnalyzerWorker extends EventEmitter {
         }
     }
 
+    analyze(tasks) {
+        // If the worker is already busy
+        if (this.busy) {
+            return new Error('Worker is busy!');
+        }
+        if (!this.active) {
+            return new Error('Worker is not active!');
+        }
+
+        this.busy = true;
+        for (const t of tasks){
+            this.currentTasks.set(t.id, {resolve: t.resolve, reject: t.reject});
+        }
+        const payload = tasks.map(t => ({
+            id: t.id,
+            url: t.url, 
+            headers: JSON.stringify(t.headers),
+            body: t.body ? t.body.toString() : ''
+        }));
+        // Send request to a stdin of the C proces
+        this.process.stdin.write(JSON.stringify(payload) + '\n');
+        
+        // If task is not completed in 5s, abort
+        this.timeoutID = setTimeout(() => {
+            for (const t of tasks) {
+                if (this.currentTasks.has(t.id)) {
+                    this.currentTasks.get(t.id).reject(new Error('Worker timeout'));
+                    this.currentTasks.delete(t.id);
+                }
+            }
+            this.busy = false;
+            this.active = false;
+            this.kill();
+        }, 5000);
+        
+        return null;
+    }
+
 
     // Method that will create a JSON request, and send it to the C process
     // It will return a Promise 
-    analyze(url, headers, body) {
-        return new Promise((resolve, reject) => {
-            // If the worker is already busy
-            if (this.busy) {
-                reject(new Error('Worker is busy!'));
-                return;
-            }
-            if (!this.active) {
-                reject(new Error('Worker is not active!'));
-                return;
-            }
+    // analyze(url, headers, body) {
+    //     return new Promise((resolve, reject) => {
+    //         // If the worker is already busy
+    //         if (this.busy) {
+    //             reject(new Error('Worker is busy!'));
+    //             return;
+    //         }
+    //         if (!this.active) {
+    //             reject(new Error('Worker is not active!'));
+    //             return;
+    //         }
 
 
-            this.busy = true;
-            this.currentTask = {resolve, reject};
+    //         this.busy = true;
+    //         this.currentTask = {resolve, reject};
 
-            const request = {
-                url, 
-                headers: JSON.stringify(headers),
-                body: body ? body.toString() : ''
-            };
+    //         const request = {
+    //             url, 
+    //             headers: JSON.stringify(headers),
+    //             body: body ? body.toString() : ''
+    //         };
 
-            // Send request to a stdin of the C proces
-            this.process.stdin.write(JSON.stringify(request) + '\n');
+    //         // Send request to a stdin of the C proces
+    //         this.process.stdin.write(JSON.stringify(request) + '\n');
             
-            // If task is not completed in 5s, abort
-            const timeoutId = setTimeout(() => {
-                if (this.currentTask) {
-                    this.currentTask.reject(new Error('Worker timeout'));
-                    this.currentTask = null;
-                    this.busy = false;
-                    this.active = false;
-                    this.kill();
-                }
-            }, 5000);
+    //         // If task is not completed in 5s, abort
+    //         const timeoutId = setTimeout(() => {
+    //             if (this.currentTask) {
+    //                 this.currentTask.reject(new Error('Worker timeout'));
+    //                 this.currentTask = null;
+    //                 this.busy = false;
+    //                 this.active = false;
+    //                 this.kill();
+    //             }
+    //         }, 5000);
 
-            // If we don't remove timer - worker will be killed after 5s if it has any task
-            this.currentTask = {
-                resolve: (result) => {
-                    clearTimeout(timeoutId);
-                    resolve(result);
-                },
-                reject: (error) => {
-                    clearTimeout(timeoutId);
-                    reject(error);
-                }
-            };
-        });
-    }
+    //         // If we don't remove timer - worker will be killed after 5s if it has any task
+    //         this.currentTask = {
+    //             resolve: (result) => {
+    //                 clearTimeout(timeoutId);
+    //                 resolve(result);
+    //             },
+    //             reject: (error) => {
+    //                 clearTimeout(timeoutId);
+    //                 reject(error);
+    //             }
+    //         };
+    //     });
+    // }
 
     kill() {
         if (this.process){
@@ -190,22 +249,29 @@ class WorkerPool extends EventEmitter {
         const freeWorker = this.getFreeWorker();
         if (!freeWorker) return;
 
-        const task = this.taskQueue.shift();
-        this.executeTask(freeWorker, task);
+        const taskNumber = Math.min(batchSize, this.taskQueue.length);
+
+        const tasks = this.taskQueue.splice(0, taskNumber);
+        this.executeTask(freeWorker, tasks);
     }
 
-    executeTask(worker, task) {
-        worker.analyze(task.url, task.headers, task.body)
-        .then(task.resolve)
-        .catch(task.reject);
+    executeTask(worker, tasks) {
+        for (const t of tasks) {
+            t.id = randomUUID();
+        }
+        const err = worker.analyze(tasks);
+        if (err instanceof Error) {
+            this.taskQueue.unshift(...tasks);
+            setImmediate(() => this.processQueue());
+        }
     }
 
-    async analyze(url, headers, body) {
+    analyze(url, headers, body) {
         return new Promise((resolve, reject) => {
             const task = { url, headers, body, resolve, reject };
             const freeWorker = this.getFreeWorker();
             if (freeWorker) {
-                this.executeTask(freeWorker, task);
+                this.executeTask(freeWorker, [task]);
             }else{
                 this.taskQueue.push(task);
 

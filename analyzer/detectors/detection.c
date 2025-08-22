@@ -84,8 +84,6 @@ RawRegexPattern raw_patterns[] = {
     {".*\\$(where|ne|gt|lt|regex|in|nin).*", "MongoDB operators in input", 3, SQL_INJECTION},
 
 
-
-
     // -------------------------------------- XSS ---------------------------------------------------------------
 
 
@@ -149,6 +147,21 @@ RawRegexPattern raw_patterns[] = {
 
     // 18) Event handler koji sadrži <script>
     {"(?i).*<[^>]+(\\s)(on[a-z]{2,})(\\s)*=(\\s)*(\"[^\"]*<(\\s)*script\\b|\'[^\']*<(\\s)*script\\b).*", "Event handler contains <script>", 9, XSS},
+
+
+    // --------------------------- DIRECTORY TRAVERSAL -----------------------------
+
+    {"(?i).*(\\.|%2e){2}(\\/|%2f|\\\\|%5c).*", "directory traversal attempt (../)", 5, DIRECTORY_TRAVERSAL},
+
+    {"(?i).*(\\.|%2e){2}(\\\\|%5c).*", "directory traversal attempt (..\\)", 5, DIRECTORY_TRAVERSAL},
+
+    // --------------------------- COMMAND INJECTION -----------------------------
+
+    // Common commands
+    {"(?i).*(\\s|^|;|%3b)(cat|ls|dir|whoami|id|uname|pwd|ps|netstat|ping|curl|wget)(\\s|$|;|%3b|\\||%7c|&|%26).*", "System command", 8, COMMAND_INJECTION},
+
+    // Windows commands  
+    {"(?i).*(\\s|^|;|%3b)(cmd|powershell|net|systeminfo|tasklist|ipconfig)(\\s|$|;|%3b|\\||%7c|&|%26).*", "Windows command", 8, COMMAND_INJECTION},
 
     // === END ===
     {NULL, NULL, 0}
