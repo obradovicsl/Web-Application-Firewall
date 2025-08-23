@@ -1,0 +1,7 @@
+{
+    "mode": "mixed", 
+    "ip_whitelist": "whitelist.json",
+    "ip_blacklist": "blacklist.json",
+    "logFile": "waf.log"
+}
+  

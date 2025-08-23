@@ -274,7 +274,7 @@ void analyze(const char *input, http_request_part location, findings_t *findings
                 .location = location,
             };
 
-            fprintf(stderr, "✓ MATCH: %s\n", compiled_patterns[i].description);
+            // fprintf(stderr, "✓ MATCH: %s\n", compiled_patterns[i].description);
         }
     }
 }

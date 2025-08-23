@@ -1,5 +1,7 @@
 const cluster = require('cluster');
 const os = require('os');
+const fs = require('fs');
+const path = require('path');
 
 const http = require('http');
 const { exec } = require('child_process');
@@ -10,6 +12,28 @@ const backendHost = process.env.BACKEND_HOST || '127.0.0.1';
 const backendPort = Number(process.env.BACKEND_PORT) || 3000;
 const numberOfWorkersInPool = Number(process.env.WORKERS_NUM) || 10;
 const numClusterWorkers = Number(process.env.CLUSTER_WORKERS) || os.cpus().length;
+
+
+const configPath = path.join(__dirname, 'rules/config.json');
+const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+
+const whitelistPath = path.join(__dirname, `rules/${config.ip_whitelist}`);
+const blacklistPath = path.join(__dirname, `rules/${config.ip_blacklist}`);
+
+const whitelist = JSON.parse(fs.readFileSync(whitelistPath, 'utf8'));
+const blacklist = JSON.parse(fs.readFileSync(blacklistPath, 'utf8'));
+
+// Simple logger
+function log(msg) {
+    fs.appendFile(config.logFile, `[${new Date().toISOString()}] ${msg}\n`, err => {
+        if (err) console.error('Log write failed:', err);
+    });
+}
+  
+ // Helper: check IP/hostname against list
+function isListed(list, ip, host) {
+   return list.ips.includes(ip) || list.hosts.includes(host);
+}
 
 
 // ------------- Scheduling Policy -------------
@@ -125,6 +149,20 @@ if (cluster.isPrimary || cluster.isMaster) {
         function requestHandler(req, res) {
                 
             let body = [];
+            const ip = req.socket.remoteAddress.replace("::ffff:", "");
+            const host = req.headers.host || "";
+
+            // Check blacklisted
+            if (isListed(blacklist, ip, host)) {
+                log(`BLOCKED: ip=${ip} host=${host} method=${req.method} url=${req.url}, reason="blacklisted"`);
+                res.writeHead(403, { 'Content-Type': 'text/plain' });
+                return res.end('Forbidden');
+            }
+
+            // Check whitelisted
+            if (isListed(whitelist, ip, host)) {
+                return forwardRequestStream(req, res); 
+            }
             
             // Data for body comes in chunks
             req.on('data', chunk => {
@@ -144,6 +182,8 @@ if (cluster.isPrimary || cluster.isMaster) {
                     avgAnalysisTime.count++;
                     avgAnalysisTime.sum += analysisTime;
 
+                    logAttack(result, ip, host, req);
+
                     // result = { "status": "clean" };
 
                     addSecurityHeaders(req, result);
@@ -157,6 +197,44 @@ if (cluster.isPrimary || cluster.isMaster) {
                 }
             });
             
+        }
+        function logAttack(result_s, ip, host, req) {
+            let result;
+            try {
+                result = JSON.parse(result_s);
+            } catch (err) {
+                console.error('Failed to parse analysis result:', err, result_s);
+                return;
+            }
+        
+            if (result.status === 'attack' && Array.isArray(result.findings)) {
+                result.findings = groupFindings(result.findings);
+        
+                const reason = result.findings
+                    .map(f => `${f.attack}@${f.location}: [${f.severities.join(', ')}]`)
+                    .join('; ');
+        
+                log(`BLOCKED: ip=${ip} host=${host} method=${req.method} url=${req.url} reason="${reason}"`);
+            }
+        }
+        
+
+        function groupFindings(findings) {
+            const map = new Map();
+        
+            for (const f of findings) {
+                const key = `${f.attack}|${f.location}`;
+                if (!map.has(key)) {
+                    map.set(key, {
+                        attack: f.attack,
+                        location: f.location,
+                        severities: []
+                    });
+                }
+                map.get(key).severities.push(f.severity);
+            }
+        
+            return Array.from(map.values());
         }
 
         function forwardRequest(req, res, body) {
@@ -195,6 +273,40 @@ if (cluster.isPrimary || cluster.isMaster) {
             
             proxyReq.end();
         }
+
+        function forwardRequestStream(req, res) {
+            const options = {
+                hostname: backendHost,
+                port: backendPort,
+                path: req.url,
+                method: req.method,
+                headers: req.headers,
+                agent: backendAgent,
+            };
+        
+            const proxyReq = http.request(options, proxyRes => {
+                const responseHeaders = {
+                    ...proxyRes.headers,
+                    'connection': 'keep-alive',
+                    'keep-alive': 'timeout=30, max=100',
+                    'x-proxy': 'security-proxy',
+                };
+                res.writeHead(proxyRes.statusCode, responseHeaders);
+                proxyRes.pipe(res, { end: true });
+            });
+        
+            proxyReq.on('error', err => {
+                console.log(`[cluster-worker ${process.pid}] redirect error: `, err.message);
+                if (!res.headersSent) {
+                    res.writeHead(500, {'Content-Type': 'text/plain'});
+                }
+                res.end('Proxy server error');
+            });
+        
+            // **ovo prosleđuje ceo body stream direktno backendu bez bufferinga**
+            req.pipe(proxyReq, { end: true });
+        }
+        
 
         function addSecurityHeaders(req, result) {
             if (result.status == 'attack') {
