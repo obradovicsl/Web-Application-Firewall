@@ -8,6 +8,8 @@
         "models.h": "c",
         "sqli_detection.h": "c",
         "detection.h": "c",
-        "html-decoder.h": "c"
+        "html-decoder.h": "c",
+        "cstdlib": "cpp",
+        "string": "cpp"
     }
 }

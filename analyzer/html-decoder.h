@@ -1,7 +1,7 @@
 #ifndef HTML_DECODER
 #define HTML_DECODER
 #include <stdbool.h>
-#include <stdint.h>    // za uint32_t
+#include <stdint.h>
 #include <stddef.h>
 
 #include "models.h"

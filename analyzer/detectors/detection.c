@@ -17,15 +17,12 @@ RawRegexPattern raw_patterns[] = {
 
     // ------------------------------------------ SQLi ------------------------------------------
 
-    // === BOOLEAN INJECTIONS ===
     // Boolean with numbers - or 1=1, and 32=32
     {"(?i).*(\\s|%20|\\+)*(or|and)(\\s|%20|\\+)*\\d+(\\s|%20|\\+)*=(\\s|%20|\\+)*\\d+.*", "and/or n=n anywhere", 5, SQL_INJECTION},
-
 
     // Boolean with strings - or '1'='1'
     {"(?i).*(\\s|%20|\\+)*(or|and)(\\s|%20|\\+)*'[^']*'(\\s|%20|\\+)*=(\\s|%20|\\+)*'[^']*'.*", "OR/AND string compare (')", 4, SQL_INJECTION},
     {"(?i).*(\\s|%20|\\+)+(or|and)(\\s|%20|\\+)*\"[^\"]*\"(\\s|%20|\\+)*=(\\s|%20|\\+)*\"[^\"]*\".*", "OR/AND string compare (\")", 4, SQL_INJECTION},
-
 
     // === UNION-BASED ===
     {"(?i).*union(\\s|%20|\\+)+all(\\s|%20|\\+)+select.*", "UNION ALL SELECT", 5, SQL_INJECTION},
@@ -77,11 +74,11 @@ RawRegexPattern raw_patterns[] = {
     {"(?i).*into(\\s|%20|\\+)+dumpfile.*", "INTO DUMPFILE", 5, SQL_INJECTION},
 
     // === ENKODING / OBFUSKACIJA ===
-    {".*0x[0-9A-Fa-f]+.*", "Hex literal 0x...", 3, SQL_INJECTION},
-    {".*%25[0-9A-Fa-f]{2}.*", "Double URL-encoding (%25XX)", 3, SQL_INJECTION},
+    {"(?i).*0x[0-9A-Fa-f]+.*", "Hex literal 0x...", 3, SQL_INJECTION},
+    {"(?i).*%25[0-9A-Fa-f]{2}.*", "Double URL-encoding (%25XX)", 3, SQL_INJECTION},
 
     // === NoSQL (osnovno) ===
-    {".*\\$(where|ne|gt|lt|regex|in|nin).*", "MongoDB operators in input", 3, SQL_INJECTION},
+    {"(?i).*\\$(where|ne|gt|lt|regex|in|nin).*", "MongoDB operators in input", 3, SQL_INJECTION},
 
 
     // -------------------------------------- XSS ---------------------------------------------------------------
@@ -155,6 +152,8 @@ RawRegexPattern raw_patterns[] = {
 
     {"(?i).*(\\.|%2e){2}(\\\\|%5c).*", "directory traversal attempt (..\\)", 5, DIRECTORY_TRAVERSAL},
 
+    {"(?i).*(/|\\\\)(etc|proc|sys|root|var|usr|bin|sbin|lib|lib64|boot)(/.*)?","suspicious access to critical folder", 5, DIRECTORY_TRAVERSAL},
+
     // --------------------------- COMMAND INJECTION -----------------------------
 
     // Common commands
@@ -163,7 +162,46 @@ RawRegexPattern raw_patterns[] = {
     // Windows commands  
     {"(?i).*(\\s|^|;|%3b)(cmd|powershell|net|systeminfo|tasklist|ipconfig)(\\s|$|;|%3b|\\||%7c|&|%26).*", "Windows command", 8, COMMAND_INJECTION},
 
+    // More Linux/Unix commands
+    {"(?i).*(\\s|^|;|%3b)(chmod|chown|su|sudo|passwd|mount|umount|kill|killall|pkill|find|grep|awk|sed|tar|gzip|gunzip)(\\s|$|;|%3b|\\||%7c|&|%26).*", "Extended Linux commands", 8, COMMAND_INJECTION},
+
+    // Network & System commands
+    {"(?i).*(\\s|^|;|%3b)(nc|netcat|telnet|ssh|scp|rsync|tcpdump|nmap|ss|lsof|iptables)(\\s|$|;|%3b|\\||%7c|&|%26).*", "Network commands", 8, COMMAND_INJECTION},
+
+    // FIle operations & editing
+    {"(?i).*(\\s|^|;|%3b)(vi|vim|nano|emacs|rm|mv|cp|touch|mkdir|rmdir|head|tail|more|less)(\\s|$|;|%3b|\\||%7c|&|%26).*", "File operations", 8, COMMAND_INJECTION},
+
+    // More Windows commands
+    {"(?i).*(\\s|^|;|%3b)(wmic|reg|sc|schtasks|bcdedit|netsh|rundll32|regsvr32|mshta|certutil)(\\s|$|;|%3b|\\||%7c|&|%26).*", "Windows system commands", 8, COMMAND_INJECTION},
+
+    // Interpreters
+    {"(?i).*(\\s|^|;|%3b)(python|python3|perl|ruby|php|node|java|sh|bash|zsh|csh|tcsh)(\\s|$|;|%3b|\\||%7c|&|%26).*", "Interpreters", 7, COMMAND_INJECTION},
+
+
+    // --------------------------- LDAP INJECTION -----------------------------
+
+    // LDAP logički operatori (OR, AND, NOT)
+    {"(?i).*(\\(|%28)(\\||%7c|\\&|!)(.*)(\\)|%29).*", "LDAP logical operators", 7, LDAP_INJECTION},
+
+    // LDAP wildcard i filter manipulacija
+    {"(?i).*(\\*|%2a|\\)|%29)(\\s*)(\\(|%28).*", "LDAP wildcards and filter chaining", 7, LDAP_INJECTION},
+
+    // LDAP filter bypass (upotreba |=, &=, >=, <=)
+    {"(?i).*(\\(|%28)(objectClass|cn|uid|sn|mail)([!~<>]?=).*", "LDAP filter manipulation", 7, LDAP_INJECTION},
+
+    // LDAP boolean uslovi (all-match)
+    {"(?i).*(\\(|%28)\\s*\\*\\s*=\\s*\\*\\s*(\\)|%29).*", "LDAP always-true condition", 7, LDAP_INJECTION},
+
+    // LDAP comment i truncation tehnike
+    {"(?i).*(\\)|%29)(\\s*)(\\#|%23).*", "LDAP comment/truncation", 6, LDAP_INJECTION},
+
+    // LDAP chaining više filtera
+    {"(?i).*(\\(|%28)(\\&|\\|)(\\s*\\(.*\\)\\s*){2,}(\\)|%29).*", "LDAP filter chaining", 7, LDAP_INJECTION},
+
+
     // === END ===
+
+
     {NULL, NULL, 0}
 };
 
