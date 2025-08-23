@@ -2,17 +2,19 @@ const cluster = require('cluster');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
-
 const http = require('http');
 const { exec } = require('child_process');
 const WorkerPool = require('./worker-pool');
 
+
+
+
+// ================== CONFIG & ENV ==================
 const PORT = Number(process.env.PROXY_PORT) || 8080;
 const backendHost = process.env.BACKEND_HOST || '127.0.0.1';
 const backendPort = Number(process.env.BACKEND_PORT) || 3000;
-const numberOfWorkersInPool = Number(process.env.WORKERS_NUM) || 10;
-const numClusterWorkers = Number(process.env.CLUSTER_WORKERS) || os.cpus().length;
-
+const numCWorkers = Number(process.env.C_WORKERS_NUM) || 10;
+const numClusterWorkers = Number(process.env.NODE_CLUSTER_WORKERS) || os.cpus().length;
 
 const configPath = path.join(__dirname, 'rules/config.json');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
@@ -23,41 +25,65 @@ const blacklistPath = path.join(__dirname, `rules/${config.ip_blacklist}`);
 const whitelist = JSON.parse(fs.readFileSync(whitelistPath, 'utf8'));
 const blacklist = JSON.parse(fs.readFileSync(blacklistPath, 'utf8'));
 
-// Simple logger
+
+// ================== HELPERS ==================
+
 function log(msg) {
     fs.appendFile(config.logFile, `[${new Date().toISOString()}] ${msg}\n`, err => {
         if (err) console.error('Log write failed:', err);
     });
 }
-  
- // Helper: check IP/hostname against list
+
 function isListed(list, ip, host) {
    return list.ips.includes(ip) || list.hosts.includes(host);
 }
 
+function groupFindings(findings) {
+    const map = new Map();
 
-// ------------- Scheduling Policy -------------
+    for (const f of findings) {
+        const key = `${f.attack}|${f.location}`;
+        if (!map.has(key)) {
+            map.set(key, {
+                attack: f.attack,
+                location: f.location,
+                severities: []
+            });
+        }
+        map.get(key).severities.push(f.severity);
+    }
+
+    return Array.from(map.values());
+}
+
+
+// ================== CLUSTER SCHEDULING ==================
 if (cluster.isPrimary || cluster.isMaster) {
     try {
       cluster.schedulingPolicy = cluster.SCHED_RR;
     } catch {}
 }
 
-// ------------- Cluster -------------
-if (cluster.isPrimary || cluster.isMaster) {
-    let shuttingDown = false;
 
+// ================== PRIMARY PROCESS ==================
+if (cluster.isPrimary || cluster.isMaster) {
+    
     // ================= MASTER PROCES =================
+    
+    let shuttingDown = false;
     console.log(`[cluster-primary ${process.pid}] starting ${numClusterWorkers} workers on port ${PORT} ...`);
 
+    // Spawn worker processes
     for (let i = 0; i < numClusterWorkers; i++) {
         cluster.fork();
     }
 
+    // Register callback - log when a worker boots up
     cluster.on('online', (w) => {
         console.log(`[cluster-primary] worker ${w.process.pid} online`);
     });
     
+    // Restart worker if it crashes
     cluster.on('exit', (w, code, signal) => {
         if (shuttingDown) return;
         console.error(`[cluster-primary] worker ${w.process.pid} exited (code=${code}, signal=${signal}). Restarting...`);
@@ -83,6 +109,7 @@ if (cluster.isPrimary || cluster.isMaster) {
             worker.disconnect();
         });
     
+        // Execute shell script for unloading PF rules
         function runCleanup() {
             exec('./disable-proxy.sh', (error, stdout) => {
                 if (error) console.error(`Error while unloading PF: ${error.message}`);
@@ -96,23 +123,6 @@ if (cluster.isPrimary || cluster.isMaster) {
     process.on('SIGINT', shutdownPrimary);
 } else {
     // ================= WORKER PROCES =================
-    const workerId = cluster.worker?.id || 'n/a';
-    console.log(`[cluster-worker ${process.pid}#${workerId}] booting...`);
-
-    const workerPool = new WorkerPool(numberOfWorkersInPool);
-
-    const avgAnalysisTime = {
-        count: 0,
-        sum: 0,
-        calc() {
-            console.log(`[cluster-worker ${process.pid}] avg analysis: ${Math.floor(this.sum / this.count)}ms`);
-        }
-    }
-
-    workerPool.on('ready', () => {
-        console.log(`[cluster-worker ${process.pid}] worker-pool ready, starting proxy...`)
-        startProxy();
-    });
 
     const backendAgent = new http.Agent({
         keepAlive: true,
@@ -124,10 +134,29 @@ if (cluster.isPrimary || cluster.isMaster) {
         scheduling: 'fifo'            
     });
 
+    const workerId = cluster.worker?.id || 'n/a';
+    console.log(`[cluster-worker ${process.pid}#${workerId}] booting...`);
+
+    // Creating worker pool
+    const workerPool = new WorkerPool(numCWorkers);
+
+    // Helper-func for calculating average time required for analys
+    const avgAnalysisTime = {
+        count: 0,
+        sum: 0,
+        calc() {
+            console.log(`[cluster-worker ${process.pid}] avg analysis: ${Math.floor(this.sum / this.count)}ms`);
+        }
+    }
+
+    // Start proxy server once worker pool is ready
+    workerPool.on('ready', () => {
+        console.log(`[cluster-worker ${process.pid}] worker-pool ready, starting proxy...`)
+        startProxy();
+    });
+
     function startProxy() {
-        
         const server = http.createServer(requestHandler);
-        
         server.listen(PORT, () => {
             console.log(`[cluster-worker ${process.pid}] proxy listening on http://localhost:${PORT}`);
         });
@@ -198,6 +227,7 @@ if (cluster.isPrimary || cluster.isMaster) {
             });
             
         }
+
         function logAttack(result_s, ip, host, req) {
             let result;
             try {
@@ -216,25 +246,6 @@ if (cluster.isPrimary || cluster.isMaster) {
         
                 log(`BLOCKED: ip=${ip} host=${host} method=${req.method} url=${req.url} reason="${reason}"`);
             }
-        }
-        
-
-        function groupFindings(findings) {
-            const map = new Map();
-        
-            for (const f of findings) {
-                const key = `${f.attack}|${f.location}`;
-                if (!map.has(key)) {
-                    map.set(key, {
-                        attack: f.attack,
-                        location: f.location,
-                        severities: []
-                    });
-                }
-                map.get(key).severities.push(f.severity);
-            }
-        
-            return Array.from(map.values());
         }
 
         function forwardRequest(req, res, body) {
@@ -307,7 +318,6 @@ if (cluster.isPrimary || cluster.isMaster) {
             req.pipe(proxyReq, { end: true });
         }
         
-
         function addSecurityHeaders(req, result) {
             if (result.status == 'attack') {
                 req.headers['x-security-status'] = 'attack';

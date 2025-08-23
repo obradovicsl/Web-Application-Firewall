@@ -5,21 +5,22 @@ source .env
 set +a
 
 echo "🔨 Compiling RE2 wrappers..."
-# Kompajliraj C++ wrapper prvo
+
+# Compile C++ wrappers
 g++ -std=c++17 -O2 \
     -I/opt/homebrew/include \
     -Ianalyzer \
     -c analyzer/re2_wrapper.cpp \
     -o analyzer/re2_wrapper.o
 
-# Provjeri da li je wrapper uspješno kompajliran
 if [ $? -ne 0 ]; then
     echo "❌ Error while compiling RE2 wrappers!"
     exit 1
 fi
 
 echo "🔨 Compiling C modules..."
-# Kompajliraj C fajlove
+
+# Compile C files
 gcc -O2 \
     -I/opt/homebrew/include \
     -Ianalyzer/detectors \
@@ -41,7 +42,8 @@ gcc -O2 \
     -o analyzer/detectors/detection.o
 
 echo "🔗 Component linking..."
-# Final linkovanje sa g++ (jer imaš C++ kod u wrapper-u)
+
+# Link with g++ - because of C++ code in RE2 wrapper
 g++ -O2 \
     analyzer/main.o \
     analyzer/html-decoder.o \
@@ -53,14 +55,12 @@ g++ -O2 \
     -ljson-c \
     -o ${ANALYZER_NAME}
 
-# Provjeri da li je linkovanje uspješno
 if [ $? -eq 0 ]; then
     echo "✅ ${C_NAME} compiled to ${ANALYZER_NAME} and ready for use"
     
-    # Očisti privremene object fajlove
     rm -f analyzer/*.o analyzer/detectors/*.o
     
 else
-    echo "❌ Greška pri linkovanju!"
+    echo "❌ Linking error!"
     exit 1
 fi

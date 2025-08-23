@@ -21,21 +21,12 @@ const char *severity_to_str(severity_t type);
 
 
 int main(){
-
     setvbuf(stdout, NULL, _IONBF, 0); // Unbuffered stdout
     setvbuf(stderr, NULL, _IONBF, 0); // Unbuffered stderr
     
-    size_t buffer_size = 1024 * 1024;
-    char *buffer = malloc(buffer_size);
-    if (!buffer) {
-        fprintf(stderr, "{\"error\":\"Memory allocation failed\"}\n");    
-        return 1;
-    }
-
     // Compile REGEX patterns
     init_regex_patterns();
 
-    
     // Ready signal
     fprintf(stdout, "{\"status\":\"ready\"}\n");
     fflush(stdout);
@@ -53,6 +44,7 @@ int main(){
         }
 
         if (read > 0) {
+            
             size_t requests_len = 0;
             request_t *requests = parse_input_array(line, &requests_len);
             // fprintf(stderr, "%zu Zahteva se obradjuje", requests_len);
@@ -81,9 +73,6 @@ int main(){
     }
 
     if (line) free(line);
-    free(buffer);
-
-
     cleanup_regex_patterns();
     return 0;
 }

@@ -3,16 +3,17 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 
-const PORT = 3000;
+const PORT = process.env.BACKEND_PORT || 3000;
 
 const server = http.createServer((req, res) => {
+
     const parsedUrl = url.parse(req.url, true);
     const pathname = parsedUrl.pathname;
 
     // console.dir(req.headers, {depth: null});
     // console.log('Query:', parsedUrl.query);
 
-    // --- API ruta ---
+    // --- API route ---
     if (pathname.startsWith('/api/users/')) {
         const id = pathname.split('/').pop(); // npr. '1' ili "'1'"
         console.log('User ID param:', id);
@@ -23,12 +24,10 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    // --- Serviranje HTML stranice ---
+    // --- index.HTML page ---
     let filePath = path.join(__dirname, 'index.html');
 
-    // za fallback možeš proslediti bilo koji URL na index.html (SPA)
     if (pathname !== '/') {
-        // opcionalno, ako imaš frontend router
         filePath = path.join(__dirname, 'index.html');
     }
 

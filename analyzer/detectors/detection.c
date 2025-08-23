@@ -254,8 +254,6 @@ void analyze(const char *input, http_request_part location, findings_t *findings
     if (!input || strlen(input) == 0) {
         return;
     }
-    
-    // printf("Analyzing: \"%s\"\n", input);
 
     if (!patterns_initialized) {
         init_regex_patterns();

@@ -51,8 +51,6 @@ char *extract_json_values(const char *text) {
     return result;
 }
 
-
-
 char *normalize_str(const char *src) {
     if (!src) return NULL;
     size_t len = strlen(src);
@@ -98,7 +96,6 @@ char *normalize_str(const char *src) {
 
     return dst;
 }
-
 
 size_t html_entity_decode(const char *src, size_t len, char *dst, size_t dst_size) {
     size_t i = 0, j = 0;
@@ -150,11 +147,6 @@ size_t html_entity_decode(const char *src, size_t len, char *dst, size_t dst_siz
     return j;
 }
 
-
-
-
-
-
 static size_t utf8_encode(uint32_t cp, char *out, size_t out_size) {
     if (cp <= 0x7F) {
         if (out_size < 1) return 0;
@@ -181,12 +173,6 @@ static size_t utf8_encode(uint32_t cp, char *out, size_t out_size) {
     }
     return 0; // nevalidan codepoint
 }
-
-
-typedef struct {
-    const char *name;
-    uint32_t codepoint;
-} Entity;
 
 static const Entity entities[] = {
     {"lt", '<'}, {"gt", '>'}, {"amp", '&'},

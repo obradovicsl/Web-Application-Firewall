@@ -41,6 +41,11 @@ typedef struct{
 }request_t;
 
 typedef struct {
+    const char *name;
+    uint32_t codepoint;
+} Entity;
+
+typedef struct {
     attack_type_t attack;
     http_request_part location;
     const char *description;
