@@ -5,7 +5,7 @@ const path = require('path');
 const http = require('http');
 const { exec } = require('child_process');
 const WorkerPool = require('./worker-pool');
-
+const Redis = require('ioredis');
 
 
 
@@ -25,8 +25,34 @@ const blacklistPath = path.join(__dirname, `rules/${config.ip_blacklist}`);
 const whitelist = JSON.parse(fs.readFileSync(whitelistPath, 'utf8'));
 const blacklist = JSON.parse(fs.readFileSync(blacklistPath, 'utf8'));
 
+const redis = new Redis({
+    host: config.redis?.host || "127.0.0.1",
+    port: config.redis?.port || 6379
+});
+
+const rateLimiterConfig = {
+    windowSec: config.rateLimiter?.windowSec || 60,
+    maxRequests: config.rateLimiter?.maxRequests || 100
+};
+
 
 // ================== HELPERS ==================
+
+async function isRateLimited(ip) {
+    const key = `rate:${ip}`;
+    const ttl = rateLimiterConfig.windowSec;
+    const max = rateLimiterConfig.maxRequests;
+
+    // INCR - increment key - creates a new one if it doesn't exist
+    const current = await redis.incr(key);
+
+    if (current === 1) {
+        // First time - set expire - automatically expire after ttl (60s)
+        await redis.expire(key, ttl);
+    }
+
+    return current > max;
+}
 
 function log(msg) {
     fs.appendFile(config.logFile, `[${new Date().toISOString()}] ${msg}\n`, err => {
@@ -56,6 +82,19 @@ function groupFindings(findings) {
     return Array.from(map.values());
 }
 
+function isBinaryType(headers) {
+    const contentType = headers['content-type'] || '';
+
+    const binaryTypes = [
+        'image/',
+        'video/',
+        'audio/',
+        'application/octet-stream'
+    ];
+
+    return binaryTypes.some(type => contentType.startsWith(type));
+}
+ 
 
 // ================== CLUSTER SCHEDULING ==================
 if (cluster.isPrimary || cluster.isMaster) {
@@ -175,11 +214,22 @@ if (cluster.isPrimary || cluster.isMaster) {
 
         // CALLBACK FUNCTIONS 
     
-        function requestHandler(req, res) {
+        async function requestHandler(req, res) {
                 
             let body = [];
             const ip = req.socket.remoteAddress.replace("::ffff:", "");
             const host = req.headers.host || "";
+
+
+            // Check rate limit
+            if (config.rateLimiter.enabled) {
+                const limited = await isRateLimited(ip, config);
+                if (limited) {
+                    log(`RATE-LIMITED: ip=${ip} host=${host} method=${req.method} url=${req.url}`);
+                    res.writeHead(429, { 'Content-Type': 'text/plain' });
+                    return res.end('Too Many Requests');
+                }
+            }
 
             // Check blacklisted
             if (isListed(blacklist, ip, host)) {
@@ -205,7 +255,12 @@ if (cluster.isPrimary || cluster.isMaster) {
                 try {
                     // Analyse
                     const startTime = Date.now();
-                    const result = await workerPool.analyze(req.url, req.headers, body.toString());
+                    let result;
+                    if (!isBinaryType(req.headers)) {
+                        result = await workerPool.analyze(req.url, req.headers, body.toString());
+                    }else {
+                        result = await workerPool.analyze(req.url, req.headers, "");
+                    }
                     const analysisTime = Date.now() - startTime;
 
                     avgAnalysisTime.count++;

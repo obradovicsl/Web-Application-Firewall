@@ -17,5 +17,8 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node proxy/proxy.js"
+  },
+  "dependencies": {
+    "ioredis": "^5.7.0"
   }
 }

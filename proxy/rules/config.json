@@ -1,7 +1,15 @@
 {
-    "mode": "mixed", 
     "ip_whitelist": "whitelist.json",
     "ip_blacklist": "blacklist.json",
-    "logFile": "waf.log"
+    "logFile": "waf.log",
+    "rateLimiter": {
+        "enabled": true,
+        "windowSec": 60,
+        "maxRequests": 1000000
+    },
+    "redis": {
+        "host": "127.0.0.1",
+        "port": 6379
+    }
 }
   

@@ -20,6 +20,14 @@ sudo pfctl -e
 echo "Packet filter set"
 echo "All packets on ${NETWORK_INTERFACE} interface, port ${DST_PORT} will go to 127.0.0.1:${PROXY_PORT}"
 
+# Start Redis in background (daemonized)
+if ! pgrep -x "redis-server" > /dev/null; then
+  echo "Starting Redis..."
+  redis-server --daemonize yes
+else
+  echo "Redis already running."
+fi
+
 ./compile.sh
 
 # Run proxy (NodeJS)
