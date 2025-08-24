@@ -6,10 +6,6 @@
         "enabled": true,
         "windowSec": 60,
         "maxRequests": 1000000
-    },
-    "redis": {
-        "host": "127.0.0.1",
-        "port": 6379
     }
 }
   

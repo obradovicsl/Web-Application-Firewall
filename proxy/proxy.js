@@ -26,8 +26,8 @@ const whitelist = JSON.parse(fs.readFileSync(whitelistPath, 'utf8'));
 const blacklist = JSON.parse(fs.readFileSync(blacklistPath, 'utf8'));
 
 const redis = new Redis({
-    host: config.redis?.host || "127.0.0.1",
-    port: config.redis?.port || 6379
+    host: process.env.REDIS_HOST  || "127.0.0.1",
+    port: Number(process.env.REDIS_PORT) || 6379
 });
 
 const rateLimiterConfig = {
