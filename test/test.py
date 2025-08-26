@@ -13,13 +13,13 @@ connections = sys.argv[2]
 duration = sys.argv[3]
 server = sys.argv[4]
 
-# Pozivanje wrk
+# WRK call
 cmd = ["wrk", "-t"+threads, "-c"+connections, "-d"+duration, server]
 result = subprocess.run(cmd, capture_output=True, text=True)
 
 output = result.stdout
 
-# Parsiranje RPS iz wrk output-a
+# Parse RPS from WRK output
 match_rps = re.search(r"Requests/sec:\s+([\d\.]+)", output)
 match_transfer = re.search(r"Transfer/sec:\s+([\d\.]+)", output)
 match_latency = re.search(r"Latency\s+([\d\.]+)ms", output)
@@ -30,7 +30,7 @@ rps = float(match_rps.group(1)) if match_rps else 0
 transfer = float(match_transfer.group(1)) if match_transfer else 0
 latency = float(match_latency.group(1)) if match_latency else 0
 
-# Dodavanje u CSV fajl
+# Add to CSV
 file_name = "wrk_results.csv"
 header = ["timestamp", "threads", "connections", "duration", "server", "rps", "transfer_mb_s", "latency_ms", "connect_errors"]
 
