@@ -1,0 +1,498 @@
+{
+  "rules": 
+    [
+      {
+        "pattern": "(?i).*(\\s|%20|\\+)*(or|and)(\\s|%20|\\+)*\\d+(\\s|%20|\\+)*=(\\s|%20|\\+)*\\d+.*",
+        "description": "and/or n=n anywhere",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\s|%20|\\+)*(or|and)(\\s|%20|\\+)*'[^']*'(\\s|%20|\\+)*=(\\s|%20|\\+)*'*[^']*'*.*",
+        "description": "OR/AND string compare (')",
+        "severity": 4,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\s|%20|\\+)+(or|and)(\\s|%20|\\+)*\"[^\"]*\"(\\s|%20|\\+)*=(\\s|%20|\\+)*\"*[^\"]*\"*.*",
+        "description": "OR/AND string compare (\")",
+        "severity": 4,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*union(\\s|%20|\\+)+all(\\s|%20|\\+)+select.*",
+        "description": "UNION ALL SELECT",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*union(\\s|%20|\\+)+distinct(\\s|%20|\\+)+select.*",
+        "description": "UNION DISTINCT SELECT",
+        "severity": 4,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*['\"\\)]*(\\s|%20|\\+)*union(\\s|%20|\\+)*select.*",
+        "description": "Quoted/Paren UNION SELECT",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\s|%20|\\+)*(union((%20|\\+)+|\\s+)select).*",
+        "description": "UNION SELECT (encoded spaces)",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*sleep(\\s|%20|\\+)*\\((\\s|%20|\\+)*\\d*(\\s|%20|\\+)*\\).*",
+        "description": "SLEEP()",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*waitfor(\\s|%20|\\+)+delay(\\s|%20|\\+)+['\"][^'\"]+['\"].*",
+        "description": "WAITFOR DELAY",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*pg_sleep(\\s|%20|\\+)*\\((\\s|%20|\\+)*\\d+(\\s|%20|\\+)*\\).*",
+        "description": "pg_sleep()",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*benchmark(\\s|%20|\\+)*\\((\\s|%20|\\+)*\\d+.*",
+        "description": "BENCHMARK()",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*extractvalue(\\s|%20|\\+)*\\(",
+        "description": "EXTRACTVALUE(",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*updatexml(\\s|%20|\\+)*\\(",
+        "description": "UPDATEXML(",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*cast(\\s|%20|\\+)*\\([^)]*\\s+as\\s+int\\s*\\)",
+        "description": "CAST(... AS INT)",
+        "severity": 4,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*convert(\\s|%20|\\+)*\\(\\s*int\\s*,",
+        "description": "CONVERT(int,...",
+        "severity": 4,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(;|%3b)(\\s|%20|\\+)*select.*",
+        "description": "Stacked SELECT",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(;|%3b)(\\s|%20|\\+)*insert.*",
+        "description": "Stacked INSERT",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(;|%3b)(\\s|%20|\\+)*update.*",
+        "description": "Stacked UPDATE",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(;|%3b)(\\s|%20|\\+)*delete.*",
+        "description": "Stacked DELETE",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(;|%3b)(\\s|%20|\\+)*drop.*",
+        "description": "Stacked DROP",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(;|%3b)(\\s|%20|\\+)*create.*",
+        "description": "Stacked CREATE",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(;|%3b)(\\s|%20|\\+)*exec(ute)?.*",
+        "description": "Stacked EXEC/EXECUTE",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": ".*(--|%2d%2d)[^\\r\\n]*",
+        "description": "SQL line comment --",
+        "severity": 3,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": ".*(#|%23)[^\\r\\n]*",
+        "description": "MySQL hash comment #",
+        "severity": 3,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": ".*/\\*.*?\\*/",
+        "description": "SQL block comment /* */",
+        "severity": 3,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": ".*['\"](\\s)*(--|#|%23).*",
+        "description": "Quote + comment",
+        "severity": 4,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*information_schema.*",
+        "description": "information_schema",
+        "severity": 4,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*information_schema(\\s|%20|\\+)*\\.tables.*",
+        "description": "information_schema.tables",
+        "severity": 4,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*information_schema(\\s|%20|\\+)*\\.columns.*",
+        "description": "information_schema.columns",
+        "severity": 4,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*mysql\\.user.*",
+        "description": "mysql.user",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*sys\\.tables.*",
+        "description": "sys.tables",
+        "severity": 4,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(pg_tables|pg_catalog).*",
+        "description": "PostgreSQL catalogs",
+        "severity": 4,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*concat\\(",
+        "description": "CONCAT(",
+        "severity": 3,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*group_concat\\(",
+        "description": "GROUP_CONCAT(",
+        "severity": 3,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*string_agg\\(",
+        "description": "STRING_AGG(",
+        "severity": 3,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*load_file\\(",
+        "description": "LOAD_FILE(",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*into(\\s|%20|\\+)+outfile.*",
+        "description": "INTO OUTFILE",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*into(\\s|%20|\\+)+dumpfile.*",
+        "description": "INTO DUMPFILE",
+        "severity": 5,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*0x[0-9A-Fa-f]+.*",
+        "description": "Hex literal 0x...",
+        "severity": 3,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*%25[0-9A-Fa-f]{2}.*",
+        "description": "Double URL-encoding (%25XX)",
+        "severity": 3,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*\\$(where|ne|gt|lt|regex|in|nin).*",
+        "description": "MongoDB operators in input",
+        "severity": 3,
+        "category": "SQL_INJECTION"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*script>.*",
+        "description": "Opening <script> tag present",
+        "severity": 10,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*/\\s*script>.*",
+        "description": "Closing </script> tag present",
+        "severity": 10,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<[^>]+(\\s)(on[a-z]{2,})(\\s)*=(\\s)*(\"[^\"]*\"|'[^']*'|[^(\\s)>]+).*",
+        "description": "Inline event handler attribute",
+        "severity": 9,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*(href|src|xlink:href|formaction|data|action)(\\s)*=(\\s)*(\"|'|)?(\\s)*javascript(\\s)*:.*",
+        "description": "javascript: URI in attribute",
+        "severity": 10,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*(href|src|xlink:href|formaction)(\\s)*=(\\s)*(\"|'|)?(\\s)*vbscript(\\s)*:.*",
+        "description": "vbscript: URI in attribute",
+        "severity": 8,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*(href|src|xlink:href|formaction|srcset)(\\s)*=(\\s)*(\"[^\"]*\"|'[^']*'|[^(\\s)>]+)?(\\s)*data(\\s)*:(text/html|image/svg\\+xml|application/xml|application/xhtml\\+xml).*",
+        "description": "data: URI in attribute",
+        "severity": 9,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*img\\b[^>]*\\b(onerror|onload)(\\s)*=(\\s)*(\"[^\"]*\"|'[^']*'|[^(\\s)>]+).*",
+        "description": "IMG with event handler",
+        "severity": 9,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*img\\b[^>]*\\bsrc(\\s)*=(\\s)*(\"|'|)?(\\s)*(javascript(\\s)*:|data(\\s)*:).*",
+        "description": "IMG src javascript:/data:",
+        "severity": 9,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*svg\\b[^>]*(\\s)on[a-z]{2,}(\\s)*=(\\s)*(\"[^\"]*\"|'[^']*'|[^(\\s)>]+).*",
+        "description": "SVG with event handler",
+        "severity": 9,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*(svg|animate|set|foreignObject).*",
+        "description": "Potentially dangerous SVG element",
+        "severity": 8,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*(math|xml).*",
+        "description": "MathML/XML container",
+        "severity": 7,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*(iframe|object|embed|applet).*",
+        "description": "Active content tag",
+        "severity": 8,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*iframe\\b[^>]*\\bsrcdoc(\\s)*=.*",
+        "description": "Iframe with srcdoc",
+        "severity": 9,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*meta\\b[^>]*http-equiv(\\s)*=(\\s)*(\"refresh\"|'refresh'|refresh)[^>]*content(\\s)*=(\\s)*\"[^\"]*javascript(\\s)*:.*",
+        "description": "Meta refresh javascript (double quotes)",
+        "severity": 8,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*meta\\b[^>]*http-equiv(\\s)*=(\\s)*(\"refresh\"|'refresh'|refresh)[^>]*content(\\s)*=(\\s)*'[^']*javascript(\\s)*:.*",
+        "description": "Meta refresh javascript (single quotes)",
+        "severity": 8,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*meta\\b[^>]*http-equiv(\\s)*=(\\s)*(\"refresh\"|'refresh'|refresh)[^>]*content(\\s)*=[^(\\s)>]*javascript(\\s)*:.*",
+        "description": "Meta refresh javascript (no quotes)",
+        "severity": 8,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<(\\s)*base\\b[^>]*href(\\s)*=.*",
+        "description": "Base href present",
+        "severity": 5,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*style(\\s)*=(\\s)*(\"[^\"]*\"|'[^']*'|[^(\\s)>]+).*expression(\\s)*\\(.*",
+        "description": "CSS expression() in style",
+        "severity": 8,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*style(\\s)*=(\\s)*(\"[^\"]*\"|'[^']*'|[^(\\s)>]+).*url(\\s)*\\((\\s)*javascript(\\s)*:.*",
+        "description": "CSS url(javascript:)",
+        "severity": 9,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*style(\\s)*=(\\s)*(\"[^\"]*\"|'[^']*'|[^(\\s)>]+).*\\-moz-binding(\\s)*:(\\s)*url(\\s)*\\(.*",
+        "description": "CSS -moz-binding",
+        "severity": 7,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*formaction(\\s)*=(\\s)*(\"|'|)?(\\s)*javascript(\\s)*:.*",
+        "description": "formaction=javascript:",
+        "severity": 8,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*srcset(\\s)*=(\\s)*(\"[^\"]*\"|'[^']*').*javascript(\\s)*:.*",
+        "description": "srcset javascript:",
+        "severity": 7,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*(document(\\s)*\\.(\\s)*cookie|document(\\s)*\\.(\\s)*location|window(\\s)*\\.(\\s)*location).*",
+        "description": "DOM sink",
+        "severity": 5,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*(alert(\\s)*\\(|prompt(\\s)*\\(|confirm(\\s)*\\().*",
+        "description": "Common PoC JS functions",
+        "severity": 4,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*<[^>]+(\\s)(on[a-z]{2,})(\\s)*=(\\s)*(\"[^\"]*<(\\s)*script\\b|'[^']*<(\\s)*script\\b).*",
+        "description": "Event handler contains <script>",
+        "severity": 9,
+        "category": "XSS"
+      },
+      {
+        "pattern": "(?i).*(\\.|%2e){2}(\\/|%2f|\\\\|%5c).*",
+        "description": "directory traversal attempt (../)",
+        "severity": 5,
+        "category": "DIRECTORY_TRAVERSAL"
+      },
+      {
+        "pattern": "(?i).*(\\.|%2e){2}(\\\\|%5c).*",
+        "description": "directory traversal attempt (..\\)",
+        "severity": 5,
+        "category": "DIRECTORY_TRAVERSAL"
+      },
+      {
+        "pattern": "(?i).*(/|\\\\)(etc|proc|sys|root|var|usr|bin|sbin|lib|lib64|boot)(/.*)?",
+        "description": "suspicious access to critical folder",
+        "severity": 5,
+        "category": "DIRECTORY_TRAVERSAL"
+      },
+      {
+        "pattern": "(?i).*(\\s|^|;|%3b)(cat|ls|dir|whoami|id|uname|pwd|ps|netstat|ping|curl|wget)(\\s|$|;|%3b|\\||%7c|&|%26).*",
+        "description": "System command",
+        "severity": 8,
+        "category": "COMMAND_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\s|^|;|%3b)(cmd|powershell|net|systeminfo|tasklist|ipconfig)(\\s|$|;|%3b|\\||%7c|&|%26).*",
+        "description": "Windows command",
+        "severity": 8,
+        "category": "COMMAND_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\s|^|;|%3b)(chmod|chown|su|sudo|passwd|mount|umount|kill|killall|pkill|find|grep|awk|sed|tar|gzip|gunzip)(\\s|$|;|%3b|\\||%7c|&|%26).*",
+        "description": "Extended Linux commands",
+        "severity": 8,
+        "category": "COMMAND_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\s|^|;|%3b)(nc|netcat|telnet|ssh|scp|rsync|tcpdump|nmap|ss|lsof|iptables)(\\s|$|;|%3b|\\||%7c|&|%26).*",
+        "description": "Network commands",
+        "severity": 8,
+        "category": "COMMAND_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\s|^|;|%3b)(vi|vim|nano|emacs|rm|mv|cp|touch|mkdir|rmdir|head|tail|more|less)(\\s|$|;|%3b|\\||%7c|&|%26).*",
+        "description": "File operations",
+        "severity": 8,
+        "category": "COMMAND_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\s|^|;|%3b)(wmic|reg|sc|schtasks|bcdedit|netsh|rundll32|regsvr32|mshta|certutil)(\\s|$|;|%3b|\\||%7c|&|%26).*",
+        "description": "Windows system commands",
+        "severity": 8,
+        "category": "COMMAND_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\s|^|;|%3b)(python|python3|perl|ruby|php|node|java|sh|bash|zsh|csh|tcsh)(\\s|$|;|%3b|\\||%7c|&|%26).*",
+        "description": "Interpreters",
+        "severity": 7,
+        "category": "COMMAND_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\(|%28)(\\||%7c|\\&|!)(.*)(\\)|%29).*",
+        "description": "LDAP logical operators",
+        "severity": 7,
+        "category": "LDAP_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\*|%2a|\\)|%29)(\\s*)(\\(|%28).*",
+        "description": "LDAP wildcards and filter chaining",
+        "severity": 7,
+        "category": "LDAP_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\(|%28)(objectClass|cn|uid|sn|mail)([!~<>]?=).*",
+        "description": "LDAP filter manipulation",
+        "severity": 7,
+        "category": "LDAP_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\(|%28)\\s*\\*\\s*=\\s*\\*\\s*(\\)|%29).*",
+        "description": "LDAP always-true condition",
+        "severity": 7,
+        "category": "LDAP_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\)|%29)(\\s*)(\\#|%23).*",
+        "description": "LDAP comment/truncation",
+        "severity": 6,
+        "category": "LDAP_INJECTION"
+      },
+      {
+        "pattern": "(?i).*(\\(|%28)(\\&|\\|)(\\s*\\(.*\\)\\s*){2,}(\\)|%29).*",
+        "description": "LDAP filter chaining",
+        "severity": 7,
+        "category": "LDAP_INJECTION"
+      }
+    ]
+
+}
