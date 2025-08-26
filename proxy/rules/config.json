@@ -3,7 +3,7 @@
     "ip_blacklist": "blacklist.json",
     "logFile": "waf.log",
     "rateLimiter": {
-        "enabled": true,
+        "enabled": false,
         "windowSec": 60,
         "maxRequests": 1000000
     }
