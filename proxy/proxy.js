@@ -13,7 +13,7 @@ const Redis = require('ioredis');
 const PORT = Number(process.env.PROXY_PORT) || 8080;
 const backendHost = process.env.BACKEND_HOST || '127.0.0.1';
 const backendPort = Number(process.env.BACKEND_PORT) || 3000;
-const numCWorkers = Number(process.env.C_WORKERS_NUM) || 10;
+const numCWorkers = Number(process.env.C_WORKERS) || 10;
 const numClusterWorkers = Number(process.env.NODE_CLUSTER_WORKERS) || os.cpus().length;
 
 const configPath = path.join(__dirname, 'rules/config.json');
@@ -266,11 +266,16 @@ if (cluster.isPrimary || cluster.isMaster) {
                     avgAnalysisTime.count++;
                     avgAnalysisTime.sum += analysisTime;
 
-                    logAttack(result, ip, host, req);
-
+                    
                     // result = { "status": "clean" };
+                    const isSafe = logAttack(result, ip, host, req);
 
                     addSecurityHeaders(req, result);
+
+                    if (!isSafe) {
+                        res.writeHead(403, { 'Content-Type': 'text/plain' });
+                        return res.end('Forbidden');
+                    }
                     
                     forwardRequest(req, res, body);
                     
@@ -300,7 +305,10 @@ if (cluster.isPrimary || cluster.isMaster) {
                     .join('; ');
         
                 log(`BLOCKED: ip=${ip} host=${host} method=${req.method} url=${req.url} reason="${reason}"`);
+                return false;
             }
+
+            return true;
         }
 
         function forwardRequest(req, res, body) {
